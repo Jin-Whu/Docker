@@ -1,0 +1,83 @@
+version: '2'
+
+networks:
+  default:
+    driver: bridge
+
+services:
+  nextcloud:
+    image: wonderfall/nextcloud
+    container_name: nextcloud
+    restart: always
+    depends_on:
+      - nextcloud-db           # If using MySQL
+      #- solr                   # If using Nextant
+      - redis                  # If using Redis
+      - onlyoffice             # If using onlyoffice
+    environment:
+      - UID=1000
+      - GID=1000
+      - UPLOAD_MAX_SIZE=10G
+      - APC_SHM_SIZE=128M
+      - OPCACHE_MEM_SIZE=128
+      - CRON_PERIOD=15m
+      - TZ=Asia/Shanghai
+      #- ADMIN_USER=admin            # Don't set to configure through browser
+      #- ADMIN_PASSWORD=admin        # Don't set to configure through browser
+      - DOMAIN=localhost
+      - DB_TYPE=mysql
+      - DB_NAME=nextcloud
+      - DB_USER=nextcloud
+      - DB_PASSWORD=supersecretpassword
+      - DB_HOST=nextcloud-db
+    volumes:
+      - ./nextcloud/data:/data
+      - ./nextcloud/config:/config
+      - ./nextcloud/apps:/apps2
+      - ./nextcloud/themes:/nextcloud/themes
+    ports:
+      - 8080:8888
+
+  # If using MySQL
+  nextcloud-db:
+    image: mariadb:10
+    container_name: mariadb
+    restart: always
+    volumes:
+      - ./nextcloud/db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=supersecretpassword
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=supersecretpassword
+
+  # If using Nextant
+  solr:
+    image: solr:6-alpine
+    container_name: solr
+    restart: always
+    volumes:
+      - ./nextcloud/solr:/opt/solr/server/solr/mycores
+    entrypoint:
+      - docker-entrypoint.sh
+      - solr-precreate
+      - nextant
+
+  # If using Redis
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: always
+    volumes:
+      - ./nextcloud/redis:/data
+
+  # If using onlyoffice
+  onlyoffice:
+    image: onlyoffice/documentserver
+    container_name: onlyoffice-documentserver
+    restart: always
+    volumes:
+      - ./nextcloud/document_data:/var/www/onlyoffice/Data
+      - ./nextcloud/document_log:/var/log/onlyoffice
+    ports:
+      - 8081:80
